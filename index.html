@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quản Lý Công Việc & Đăng Ký Lịch Làm Theo Ca</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .shift-card { transition: all 0.2s ease-in-out; }
+        .shift-card:hover { transform: translateY(-2px); }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .nav-tab-active {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-bottom: 3px solid #f59e0b;
+            color: #ffffff !important;
+            font-weight: 600;
+        }
+        /* Sticky Left Columns for Schedule Matrix */
+        .sticky-col-1 { position: sticky; left: 0; z-index: 20; }
+        .sticky-col-2 { position: sticky; left: 160px; z-index: 20; }
+        th.sticky-col-1, th.sticky-col-2 { z-index: 30; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center py-3 gap-3 border-b border-indigo-600/50">
+                <div class="flex items-center space-x-3 w-full md:w-auto justify-between md:justify-start">
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-white p-2 rounded-xl text-indigo-700 shadow">
+                            <i class="fa-solid fa-layer-group text-2xl"></i>
+                        </div>
+                        <div>
+                            <h1 class="text-lg font-bold tracking-tight">Hệ Thống Quản Lý Điều Hành Ca</h1>
+                            <p class="text-indigo-200 text-xs">Quản lý việc, deadline & lịch làm việc nhân sự</p>
+                        </div>
+                    </div>
+
+                    <!-- Đồng hồ thời gian thực (Mobile) -->
+                    <div class="md:hidden text-right bg-indigo-800/80 px-2.5 py-1 rounded-lg border border-indigo-500/30">
+                        <div id="live-clock-mobile" class="text-xs font-mono font-bold text-amber-300">00:00:00</div>
+                        <div id="live-date-mobile" class="text-[10px] text-indigo-200">00/00/0000</div>
+                    </div>
+                </div>
+                
+                <!-- Real-time Clock & Control Buttons -->
+                <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
+                    <div class="hidden md:flex flex-col items-end bg-indigo-800/60 px-3 py-1 rounded-lg border border-indigo-500/30">
+                        <div class="flex items-center gap-1.5 text-xs text-indigo-200 font-medium">
+                            <i class="fa-regular fa-clock text-amber-300"></i>
+                            <span>Giờ hệ thống:</span>
+                            <span id="live-clock" class="font-mono font-bold text-amber-300 text-sm">00:00:00</span>
+                        </div>
+                        <div id="live-date" class="text-[11px] text-indigo-200">Thứ ..., 00/00/0000</div>
+                    </div>
+
+                    <button onclick="openEmployeeModal()" class="bg-indigo-800/80 hover:bg-indigo-800 text-indigo-100 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition border border-indigo-500/30 flex items-center gap-1.5" title="Quản lý nhân viên">
+                        <i class="fa-solid fa-users text-amber-300"></i>
+                        <span>Nhân Viên</span>
+                    </button>
+
+                    <button onclick="openStorageModal()" class="bg-indigo-800/80 hover:bg-indigo-800 text-indigo-100 hover:text-white px-3 py-1.5 rounded-lg text-xs font-medium transition border border-indigo-500/30 flex items-center gap-1.5" title="Quản lý bộ nhớ & Sao lưu">
+                        <i class="fa-solid fa-database text-amber-300"></i>
+                        <span>Bộ Nhớ & Backup</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Switcher Menu -->
+            <nav class="flex space-x-1 pt-2 overflow-x-auto text-xs sm:text-sm font-medium">
+                <button id="nav-btn-tasks" onclick="switchTab('tasks')" class="nav-tab-active px-4 py-2.5 rounded-t-lg transition flex items-center gap-2 text-indigo-100 hover:text-white whitespace-nowrap">
+                    <i class="fa-solid fa-list-check text-amber-300"></i>
+                    <span>1. Quản Lý Công Việc & Deadline</span>
+                </button>
+                <button id="nav-btn-schedule" onclick="switchTab('schedule')" class="px-4 py-2.5 rounded-t-lg transition flex items-center gap-2 text-indigo-100 hover:text-white whitespace-nowrap hover:bg-indigo-600/50">
+                    <i class="fa-solid fa-calendar-days text-amber-300"></i>
+                    <span>2. Đăng Ký Lịch Làm Việc</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main id="tab-view-tasks" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+        
+        <!-- Controls & Date Picker Bar -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-wrap gap-3 items-center justify-between">
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center bg-slate-100 p-1.5 rounded-lg border border-slate-200 gap-1.5">
+                    <i class="fa-regular fa-calendar-days text-indigo-600 pl-1"></i>
+                    <span class="text-xs font-semibold text-slate-600">Ngày xem:</span>
+                    <input type="date" id="filter-date" class="bg-white border border-slate-300 text-slate-800 text-xs rounded px-2 py-1 focus:outline-none cursor-pointer">
+                    <button onclick="jumpToToday()" title="Về ngày hôm nay" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-2.5 py-1 rounded font-medium transition flex items-center gap-1">
+                        <i class="fa-solid fa-rotate-right text-[10px]"></i>
+                        <span>Hôm nay</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button onclick="exportToCSV()" class="text-slate-600 hover:text-indigo-600 border border-slate-300 hover:border-indigo-600 px-3 py-2 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                    <span>Xuất CV Ra Excel</span>
+                </button>
+                <button onclick="openAddTaskModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg shadow-sm text-xs flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Thêm CV Mới</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase">Tổng công việc</p>
+                    <p id="stat-total" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+                    <i class="fa-solid fa-list-check text-lg"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-emerald-600 uppercase">Đã hoàn thành</p>
+                    <p id="stat-completed" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+                    <i class="fa-solid fa-circle-check text-lg"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-amber-600 uppercase">Chưa xong / Trễ</p>
+                    <p id="stat-pending" class="text-2xl font-bold text-amber-600 mt-1">0</p>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
+                    <i class="fa-solid fa-clock-rotate-left text-lg"></i>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-xs font-semibold text-slate-500 uppercase">Tiến độ ngày</span>
+                    <span id="stat-percent" class="text-xs font-bold text-indigo-600">0%</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2.5 mt-2 overflow-hidden">
+                    <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="stat-progress-text" class="text-[11px] text-slate-400 mt-2">Đã xong 0/0 công việc</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-wrap gap-3 items-center justify-between">
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
+                <div class="relative w-full sm:w-60">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="search-input" placeholder="Tìm tên CV, nhân viên..." class="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                </div>
+
+                <select id="filter-assignee" class="border border-slate-300 rounded-lg text-xs px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                    <option value="ALL">Tất cả nhân viên</option>
+                </select>
+
+                <select id="filter-status" class="border border-slate-300 rounded-lg text-xs px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                    <option value="ALL">Tất cả trạng thái</option>
+                    <option value="DONE">Đã hoàn thành</option>
+                    <option value="PENDING">Chưa xong</option>
+                </select>
+
+                <select id="filter-priority" class="border border-slate-300 rounded-lg text-xs px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                    <option value="ALL">Tất cả mức độ</option>
+                    <option value="High">Ưu tiên: Cao (Gấp)</option>
+                    <option value="Medium">Ưu tiên: Trung bình</option>
+                    <option value="Low">Ưu tiên: Thấp</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Shifts Container (3 Columns) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- CA SÁNG -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                <div class="bg-amber-500/10 border-b border-amber-500/20 px-4 py-3 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-sun text-amber-500 text-lg"></i>
+                        <h2 class="font-bold text-slate-800">CA SÁNG</h2>
+                    </div>
+                    <span id="badge-morning" class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">0 CV</span>
+                </div>
+                
+                <div id="shift-morning-list" class="p-4 flex-1 space-y-3 min-h-[300px]">
+                    <!-- Items rendered dynamically -->
+                </div>
+
+                <div class="p-3 bg-slate-50 border-t border-slate-100">
+                    <button onclick="openAddTaskModal('Morning')" class="w-full py-2 border border-dashed border-slate-300 hover:border-amber-500 hover:text-amber-600 rounded-lg text-xs font-medium text-slate-500 flex items-center justify-center gap-1 transition">
+                        <i class="fa-solid fa-plus"></i> Thêm việc Ca Sáng
+                    </button>
+                </div>
+            </div>
+
+            <!-- CA CHIỀU -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                <div class="bg-sky-500/10 border-b border-sky-500/20 px-4 py-3 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-cloud-sun text-sky-500 text-lg"></i>
+                        <h2 class="font-bold text-slate-800">CA CHIỀU</h2>
+                    </div>
+                    <span id="badge-afternoon" class="bg-sky-100 text-sky-800 text-xs font-bold px-2 py-0.5 rounded-full">0 CV</span>
+                </div>
+
+                <div id="shift-afternoon-list" class="p-4 flex-1 space-y-3 min-h-[300px]">
+                    <!-- Items rendered dynamically -->
+                </div>
+
+                <div class="p-3 bg-slate-50 border-t border-slate-100">
+                    <button onclick="openAddTaskModal('Afternoon')" class="w-full py-2 border border-dashed border-slate-300 hover:border-sky-500 hover:text-sky-600 rounded-lg text-xs font-medium text-slate-500 flex items-center justify-center gap-1 transition">
+                        <i class="fa-solid fa-plus"></i> Thêm việc Ca Chiều
+                    </button>
+                </div>
+            </div>
+
+            <!-- CA TỐI -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                <div class="bg-indigo-500/10 border-b border-indigo-500/20 px-4 py-3 flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-moon text-indigo-500 text-lg"></i>
+                        <h2 class="font-bold text-slate-800">CA TỐI</h2>
+                    </div>
+                    <span id="badge-evening" class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-0.5 rounded-full">0 CV</span>
+                </div>
+
+                <div id="shift-evening-list" class="p-4 flex-1 space-y-3 min-h-[300px]">
+                    <!-- Items rendered dynamically -->
+                </div>
+
+                <div class="p-3 bg-slate-50 border-t border-slate-100">
+                    <button onclick="openAddTaskModal('Evening')" class="w-full py-2 border border-dashed border-slate-300 hover:border-indigo-500 hover:text-indigo-600 rounded-lg text-xs font-medium text-slate-500 flex items-center justify-center gap-1 transition">
+                        <i class="fa-solid fa-plus"></i> Thêm việc Ca Tối
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main id="tab-view-schedule" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full hidden">
+        
+        <!-- Action Bar for Schedule (Cleaner design without extra title box) -->
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-table-cells text-indigo-600 text-base"></i>
+                <span class="font-bold text-slate-800 text-sm">Quản Lý & Đăng Ký Ca Làm Việc</span>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
+                <div class="relative w-full sm:w-48">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="schedule-search-input" oninput="renderScheduleView()" placeholder="Tìm tên/Mã NV..." class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+
+                <button onclick="exportScheduleToCSV()" class="text-slate-600 hover:text-indigo-600 border border-slate-300 hover:border-indigo-600 px-3 py-2 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-excel text-emerald-600"></i>
+                    <span>Xuất Bảng Excel</span>
+                </button>
+
+                <button onclick="openEmployeeModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg shadow-sm text-xs flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Quản Lý Nhân Viên</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Weekly Timetable Grid Matrix -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+            <div class="bg-slate-50 border-b border-slate-200 p-4 flex flex-wrap justify-between items-center gap-3">
+                <div class="flex items-center space-x-2">
+                    <button onclick="navigateWeek(-1)" class="p-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-slate-600 text-xs">
+                        <i class="fa-solid fa-chevron-left"></i> Tuần trước
+                    </button>
+                    <button onclick="navigateWeek(0)" class="p-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-slate-600 text-xs font-medium">
+                        Tuần này
+                    </button>
+                    <button onclick="navigateWeek(1)" class="p-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-slate-600 text-xs">
+                        Tuần sau <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+                <span id="schedule-week-range-label" class="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
+                    Tuần từ -- đến --
+                </span>
+            </div>
+
+            <!-- Custom Schedule Matrix Table (Excel Style) -->
+            <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
+                <table class="w-full text-left text-xs border-collapse min-w-[1000px]">
+                    <thead>
+                        <tr class="text-slate-800 font-bold border-b border-slate-300">
+                            <th class="p-2.5 border-r border-b border-slate-300 bg-rose-200/90 text-rose-900 text-center w-48 sticky-col-1 shadow-xs">Họ và tên</th>
+                            <th class="p-2.5 border-r border-b border-slate-300 bg-amber-200/90 text-amber-900 text-center w-20 sticky-col-2 shadow-xs">Mã</th>
+                            
+                            <th colspan="3" class="p-2 border-r border-b border-slate-300 text-center bg-purple-100 text-purple-900 border-t-2 border-t-purple-400">
+                                <div class="font-bold text-xs" id="date-header-1">Thứ 2</div>
+                                <div class="text-[10px] font-normal text-purple-700" id="date-sub-1">--</div>
+                            </th>
+                            <th colspan="3" class="p-2 border-r border-b border-slate-300 text-center bg-emerald-100 text-emerald-900 border-t-2 border-t-emerald-400">
+                                <div class="font-bold text-xs" id="date-header-2">Thứ 3</div>
+                                <div class="text-[10px] font-normal text-emerald-700" id="date-sub-2">--</div>
+                            </th>
+                            <th colspan="3" class="p-2 border-r border-b border-slate-300 text-center bg-purple-100 text-purple-900 border-t-2 border-t-purple-400">
+                                <div class="font-bold text-xs" id="date-header-3">Thứ 4</div>
+                                <div class="text-[10px] font-normal text-purple-700" id="date-sub-3">--</div>
+                            </th>
+                            <th colspan="3" class="p-2 border-r border-b border-slate-300 text-center bg-emerald-100 text-emerald-900 border-t-2 border-t-emerald-400">
+                                <div class="font-bold text-xs" id="date-header-4">Thứ 5</div>
+                                <div class="text-[10px] font-normal text-emerald-700" id="date-sub-4">--</div>
+                            </th>
+                            <th colspan="3" class="p-2 border-r border-b border-slate-300 text-center bg-purple-100 text-purple-900 border-t-2 border-t-purple-400">
+                                <div class="font-bold text-xs" id="date-header-5">Thứ 6</div>
+                                <div class="text-[10px] font-normal text-purple-700" id="date-sub-5">--</div>
+                            </th>
+                            <th colspan="3" class="p-2 border-r border-b border-slate-300 text-center bg-emerald-100 text-emerald-900 border-t-2 border-t-emerald-400">
+                                <div class="font-bold text-xs" id="date-header-6">Thứ 7</div>
+                                <div class="text-[10px] font-normal text-emerald-700" id="date-sub-6">--</div>
+                            </th>
+                            <th colspan="3" class="p-2 border-b border-slate-300 text-center bg-rose-100 text-rose-900 border-t-2 border-t-rose-400">
+                                <div class="font-bold text-xs" id="date-header-0">Chủ Nhật</div>
+                                <div class="text-[10px] font-normal text-rose-700" id="date-sub-0">--</div>
+                            </th>
+                        </tr>
+
+                        <tr class="bg-slate-100 text-slate-700 font-semibold text-[11px] border-b border-slate-300">
+                            <th class="p-1.5 border-r border-slate-300 bg-rose-100 sticky-col-1"></th>
+                            <th class="p-1.5 border-r border-slate-300 bg-amber-100 sticky-col-2"></th>
+
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-purple-50 w-11">Sáng</th>
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-purple-50 w-11">Chiều</th>
+                            <th class="p-1.5 text-center border-r border-slate-300 bg-purple-50 w-11">Tối</th>
+
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-emerald-50 w-11">Sáng</th>
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-emerald-50 w-11">Chiều</th>
+                            <th class="p-1.5 text-center border-r border-slate-300 bg-emerald-50 w-11">Tối</th>
+
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-purple-50 w-11">Sáng</th>
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-purple-50 w-11">Chiều</th>
+                            <th class="p-1.5 text-center border-r border-slate-300 bg-purple-50 w-11">Tối</th>
+
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-emerald-50 w-11">Sáng</th>
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-emerald-50 w-11">Chiều</th>
+                            <th class="p-1.5 text-center border-r border-slate-300 bg-emerald-50 w-11">Tối</th>
+
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-purple-50 w-11">Sáng</th>
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-purple-50 w-11">Chiều</th>
+                            <th class="p-1.5 text-center border-r border-slate-300 bg-purple-50 w-11">Tối</th>
+
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-emerald-50 w-11">Sáng</th>
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-emerald-50 w-11">Chiều</th>
+                            <th class="p-1.5 text-center border-r border-slate-300 bg-emerald-50 w-11">Tối</th>
+
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-rose-50 w-11">Sáng</th>
+                            <th class="p-1.5 text-center border-r border-slate-200 bg-rose-50 w-11">Chiều</th>
+                            <th class="p-1.5 text-center border-slate-200 bg-rose-50 w-11">Tối</th>
+                        </tr>
+                    </thead>
+                    
+                    <tbody id="schedule-matrix-body" class="divide-y divide-slate-200">
+                        <!-- Rendered dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+            <div class="bg-indigo-50/70 border-b border-indigo-100 p-3.5 flex items-center justify-between">
+                <h3 class="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-week text-indigo-600"></i>
+                    <span>LỊCH LÀM THEO NGÀY (Tổng Hợp Nhân Sự Theo Ca Trong Tuần)</span>
+                </h3>
+            </div>
+
+            <div class="overflow-x-auto max-h-[600px]">
+                <table class="w-full text-left text-xs border-collapse min-w-full">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                            <th class="p-3 border-r border-slate-300 w-32 sm:w-40 bg-slate-200/80 text-center text-slate-800">Thứ / Ngày</th>
+                            <th class="p-3 border-r border-slate-300 bg-amber-100/80 text-amber-900 text-center w-1/3">
+                                <i class="fa-solid fa-sun text-amber-600 mr-1"></i>Ca Sáng
+                            </th>
+                            <th class="p-3 border-r border-slate-300 bg-sky-100/80 text-sky-900 text-center w-1/3">
+                                <i class="fa-solid fa-cloud-sun text-sky-600 mr-1"></i>Ca Chiều
+                            </th>
+                            <th class="p-3 bg-indigo-100/80 text-indigo-900 text-center w-1/3">
+                                <i class="fa-solid fa-moon text-indigo-600 mr-1"></i>Ca Tối
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="summary-matrix-body" class="divide-y divide-slate-200">
+                        <!-- Rendered dynamically (7 rows x 4 columns) -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal 1: Thêm / Sửa Công Việc -->
+    <div id="task-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-slate-100 my-8 max-h-[90vh] flex flex-col">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center shrink-0">
+                <h3 id="modal-title" class="font-bold text-slate-800 text-lg">Thêm Công Việc Mới</h3>
+                <button onclick="closeAddTaskModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <form id="task-form" onsubmit="handleTaskFormSubmit(event)" class="p-6 space-y-4 overflow-y-auto flex-1">
+                <input type="hidden" id="task-id">
+                <input type="hidden" id="task-group-id">
+                
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Tên công việc <span class="text-red-500">*</span></label>
+                    <input type="text" id="task-title" required placeholder="Ví dụ: Kiểm tra kho hàng, Gửi email..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Ca làm việc <span class="text-red-500">*</span></label>
+                        <select id="task-shift" required class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                            <option value="Morning">Ca Sáng</option>
+                            <option value="Afternoon">Ca Chiều</option>
+                            <option value="Evening">Ca Tối</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mức độ ưu tiên</label>
+                        <select id="task-priority" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                            <option value="Low">Thấp</option>
+                            <option value="Medium" selected>Trung bình</option>
+                            <option value="High">Cao (Gấp)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Nhân viên phụ trách</label>
+                        <select id="task-assignee" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white">
+                            <option value="">-- Chọn nhân viên --</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Hạn chót (Giờ)</label>
+                        <input type="time" id="task-deadline" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none">
+                    </div>
+                </div>
+
+                <!-- Thêm mới / Lặp lại -->
+                <div id="repeat-section" class="bg-indigo-50/60 p-3 rounded-lg border border-indigo-100 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-xs font-bold text-indigo-900 uppercase flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate text-indigo-600"></i>
+                            <span>Lặp lại công việc (Định kỳ)</span>
+                        </label>
+                        <span id="repeat-hint" class="text-[11px] text-indigo-500">Tự động sinh CV</span>
+                    </div>
+
+                    <select id="task-repeat-type" onchange="toggleRepeatOptions()" class="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                        <option value="NONE">Không lặp lại (Chỉ ngày này)</option>
+                        <option value="DAILY">Hằng ngày (Tất cả các ngày)</option>
+                        <option value="WEEKDAYS">Thứ 2 đến Thứ 6 (Ngày làm việc)</option>
+                        <option value="CUSTOM_DAYS">Chọn thứ cụ thể trong tuần</option>
+                    </select>
+
+                    <div id="repeat-days-container" class="hidden pt-2 border-t border-indigo-100/80">
+                        <p class="text-[11px] font-semibold text-indigo-800 mb-1.5">Lặp lại vào các ngày:</p>
+                        <div class="grid grid-cols-7 gap-1 text-center">
+                            <label class="cursor-pointer"><input type="checkbox" value="1" class="repeat-day-cb hidden peer"><span class="block py-1 text-xs border border-slate-300 rounded peer-checked:bg-indigo-600 peer-checked:text-white font-medium">T2</span></label>
+                            <label class="cursor-pointer"><input type="checkbox" value="2" class="repeat-day-cb hidden peer"><span class="block py-1 text-xs border border-slate-300 rounded peer-checked:bg-indigo-600 peer-checked:text-white font-medium">T3</span></label>
+                            <label class="cursor-pointer"><input type="checkbox" value="3" class="repeat-day-cb hidden peer"><span class="block py-1 text-xs border border-slate-300 rounded peer-checked:bg-indigo-600 peer-checked:text-white font-medium">T4</span></label>
+                            <label class="cursor-pointer"><input type="checkbox" value="4" class="repeat-day-cb hidden peer"><span class="block py-1 text-xs border border-slate-300 rounded peer-checked:bg-indigo-600 peer-checked:text-white font-medium">T5</span></label>
+                            <label class="cursor-pointer"><input type="checkbox" value="5" class="repeat-day-cb hidden peer"><span class="block py-1 text-xs border border-slate-300 rounded peer-checked:bg-indigo-600 peer-checked:text-white font-medium">T6</span></label>
+                            <label class="cursor-pointer"><input type="checkbox" value="6" class="repeat-day-cb hidden peer"><span class="block py-1 text-xs border border-slate-300 rounded peer-checked:bg-indigo-600 peer-checked:text-white font-medium">T7</span></label>
+                            <label class="cursor-pointer"><input type="checkbox" value="0" class="repeat-day-cb hidden peer"><span class="block py-1 text-xs border border-slate-300 rounded peer-checked:bg-indigo-600 peer-checked:text-white font-medium">CN</span></label>
+                        </div>
+                    </div>
+
+                    <div id="repeat-duration-container" class="hidden pt-2 border-t border-indigo-100/80">
+                        <label class="block text-[11px] font-semibold text-indigo-800 mb-1">Thời gian lặp lại:</label>
+                        <select id="task-repeat-duration" class="w-full border border-indigo-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                            <option value="7">Trong 7 ngày tới</option>
+                            <option value="30" selected>Trong 30 ngày tới (1 tháng)</option>
+                            <option value="60">Trong 60 ngày tới (2 tháng)</option>
+                            <option value="90">Trong 90 ngày tới (3 tháng)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Chỉnh sửa nhóm lặp -->
+                <div id="edit-group-option" class="hidden bg-amber-50 p-3 rounded-lg border border-amber-200 space-y-1.5">
+                    <p class="text-xs font-semibold text-amber-900 flex items-center gap-1">
+                        <i class="fa-solid fa-layer-group text-amber-600"></i>
+                        <span>Đây là công việc thuộc nhóm lặp định kỳ</span>
+                    </p>
+                    <label class="flex items-center gap-2 cursor-pointer pt-1">
+                        <input type="checkbox" id="update-future-group-tasks" class="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500">
+                        <span class="text-xs text-amber-900 font-medium">Áp dụng thay đổi cho tất cả công việc lặp từ ngày này trở đi</span>
+                    </label>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Mô tả / Lưu ý ban đầu</label>
+                    <textarea id="task-note" rows="2" placeholder="Ghi chú thêm về yêu cầu công việc..." class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"></textarea>
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex justify-end gap-2 shrink-0">
+                    <button type="button" onclick="closeAddTaskModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Hủy</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium shadow-sm transition">Lưu công việc</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Sửa / Cập Nhật Lưu Ý Task -->
+    <div id="reason-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-slate-100">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 text-base">Cập nhật Lưu ý / Lý do chưa làm</h3>
+                <button onclick="closeReasonModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <input type="hidden" id="reason-task-id">
+                <p id="reason-task-title" class="text-sm font-semibold text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-200"></p>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1">Lưu ý hoặc Lý do chưa xong / Sự cố</label>
+                    <textarea id="reason-text" rows="4" placeholder="Nhập lý do chưa làm, tiến độ hiện tại hoặc sự cố gặp phải..." class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeReasonModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Hủy</button>
+                    <button type="button" onclick="saveReason()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-medium shadow-sm transition">Lưu ghi chú</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 4: Quản lý Bộ nhớ & Sao Lưu Data -->
+    <div id="storage-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full overflow-hidden border border-slate-100">
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-database text-indigo-600"></i>
+                    <span>Quản Lý Bộ Nhớ & Sao Lưu</span>
+                </h3>
+                <button onclick="closeStorageModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <div class="bg-indigo-50/80 p-3.5 rounded-lg border border-indigo-100 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-indigo-700 font-medium">Tổng bản ghi công việc & lịch:</p>
+                        <p id="storage-total-count" class="text-xl font-bold text-indigo-900 mt-0.5">0 bản ghi</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs text-indigo-700 font-medium">Ước tính dung lượng:</p>
+                        <p id="storage-size-kb" class="text-sm font-bold text-indigo-900 mt-0.5">0 KB</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-1 border-t border-slate-100">
+                    <p class="text-xs font-bold text-slate-600 uppercase">Sao lưu & Khôi phục dữ liệu:</p>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="exportBackupJSON()" class="p-2.5 border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/70 text-indigo-700 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-download"></i>
+                            <span>Tải Backup (.json)</span>
+                        </button>
+                        <label class="p-2.5 border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100/70 text-emerald-700 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 cursor-pointer text-center">
+                            <i class="fa-solid fa-upload"></i>
+                            <span>Khôi phục Backup</span>
+                            <input type="file" accept=".json" onchange="importBackupJSON(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <div class="space-y-2 pt-2 border-t border-slate-100">
+                    <p class="text-xs font-bold text-slate-600 uppercase">Dọn dẹp bộ nhớ:</p>
+
+                    <button onclick="cleanOldTasks(30)" class="w-full text-left p-3 border border-slate-200 hover:border-amber-400 rounded-lg hover:bg-amber-50/50 transition flex items-center justify-between group">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-800 group-hover:text-amber-800">Xóa công việc quá 30 ngày</p>
+                            <p class="text-[11px] text-slate-500">Bảo lưu công việc trong 1 tháng gần nhất</p>
+                        </div>
+                        <i class="fa-solid fa-broom text-slate-400 group-hover:text-amber-600"></i>
+                    </button>
+
+                    <button onclick="promptResetAllData()" class="w-full text-left p-3 border border-red-200 hover:border-red-400 rounded-lg bg-red-50/30 hover:bg-red-50 transition flex items-center justify-between group">
+                        <div>
+                            <p class="text-xs font-semibold text-red-700">Reset toàn bộ dữ liệu</p>
+                            <p class="text-[11px] text-red-500">Khôi phục ứng dụng về mẫu ban đầu</p>
+                        </div>
+                        <i class="fa-solid fa-trash-arrow-up text-red-400 group-hover:text-red-600"></i>
+                    </button>
+                </div>
+
+                <div class="flex justify-end pt-2 border-t border-slate-100">
+                    <button type="button" onclick="closeStorageModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium transition">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 5: Modal Hộp thoại xác nhận chung -->
+    <div id="confirm-dialog-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full overflow-hidden border border-slate-100 p-5 space-y-4 text-center">
+            <div id="confirm-icon-bg" class="w-12 h-12 rounded-full bg-amber-100 text-amber-600 mx-auto flex items-center justify-center text-xl">
+                <i id="confirm-icon" class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div>
+                <h3 id="confirm-title" class="font-bold text-slate-800 text-base">Xác nhận thao tác</h3>
+                <p id="confirm-message" class="text-xs text-slate-500 mt-1">Bạn có chắc chắn muốn thực hiện hành động này không?</p>
+            </div>
+            <div class="flex justify-center gap-2 pt-2">
+                <button id="confirm-btn-cancel" onclick="closeConfirmModal()" class="px-4 py-2 border border-slate-300 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition">Hủy bỏ</button>
+                <button id="confirm-btn-ok" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium shadow-sm transition">Đồng ý</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 6: Quản Lý Nhân Viên -->
+    <div id="employee-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden border border-slate-100 my-8 max-h-[85vh] flex flex-col">
+            <div class="bg-indigo-700 px-6 py-4 text-white flex justify-between items-center shrink-0">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Quản Lý Danh Sách Nhân Viên</span>
+                </h3>
+                <button onclick="closeEmployeeModal()" class="text-indigo-200 hover:text-white p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                <form onsubmit="handleAddEmployee(event)" class="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <label class="block text-xs font-bold text-slate-700 uppercase">Thêm nhân viên mới</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input type="text" id="new-employee-code" required placeholder="Mã NV (vd: D18119)" class="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                        <input type="text" id="new-employee-name" required placeholder="Họ & Tên (kèm Ng.sinh)" class="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                    </div>
+                    <div class="flex justify-between items-center pt-1">
+                        <label class="text-xs text-indigo-600 hover:underline cursor-pointer flex items-center gap-1 font-medium">
+                            <i class="fa-solid fa-file-import"></i> Nhập từ CSV
+                            <input type="file" accept=".csv" onchange="importEmployeeCSV(event)" class="hidden">
+                        </label>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i>
+                            <span>Thêm Nhân Viên</span>
+                        </button>
+                    </div>
+                </form>
+
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-bold text-slate-600 uppercase">Danh sách nhân sự hiện có</span>
+                        <span id="employee-count-badge" class="text-[11px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-full">0 nhân viên</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-100 text-slate-700 font-semibold border-b border-slate-200">
+                                <tr>
+                                    <th class="p-2 border-r border-slate-200">Mã NV</th>
+                                    <th class="p-2 border-r border-slate-200">Họ và Tên</th>
+                                    <th class="p-2 text-center w-12">Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="employee-list-container" class="divide-y divide-slate-200 bg-white">
+                                <!-- Rendered dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
+                <button type="button" onclick="closeEmployeeModal()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-medium transition">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-lg text-sm flex items-center gap-3 translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-msg">Thông báo</span>
+    </div>
+
+    <script>
+        // Helper Functions
+        function getRealTimeFormattedDate() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function addDaysToDate(dateStr, days) {
+            const parts = dateStr.split('-');
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            d.setDate(d.getDate() + days);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function getMondayOfWeek(dateStr) {
+            const parts = dateStr.split('-');
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            const monday = new Date(d.setDate(diff));
+            const year = monday.getFullYear();
+            const month = String(monday.getMonth() + 1).padStart(2, '0');
+            const date = String(monday.getDate()).padStart(2, '0');
+            return `${year}-${month}-${date}`;
+        }
+
+        function getDayOfWeekFromStr(dateStr) {
+            const parts = dateStr.split('-');
+            const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            return d.getDay(); // 0: Sunday, 1: Mon, ..., 6: Sat
+        }
+
+        function normalizeEmployee(emp) {
+            if (typeof emp === 'string') {
+                return { code: 'NV' + Math.floor(1000 + Math.random() * 9000), name: emp };
+            }
+            return {
+                code: emp.code || 'NV000',
+                name: emp.name || 'Chưa đặt tên'
+            };
+        }
+
+        let rawEmployees = JSON.parse(localStorage.getItem('shift_employees_data'));
+        let employees = [];
+
+        if (rawEmployees && Array.isArray(rawEmployees) && rawEmployees.length > 0) {
+            employees = rawEmployees.map(normalizeEmployee);
+        } else {
+            employees = [
+                { code: 'D18119', name: 'Nguyễn Lan Anh (18/7/2007)' },
+                { code: 'D18286', name: 'Triều Đỗ Diệu Linh (30/6/2006)' },
+                { code: 'D18290', name: 'Ngô Thị Châu Anh (9/10/2007)' },
+                { code: 'D18422', name: 'Nguyễn Thanh Thủy (29/8/2006)' },
+                { code: 'D18653', name: 'Hoàng Bùi Phương Anh (16/12/2005)' },
+                { code: 'D19106', name: 'Trần Võ Gia Hân (28/04/2007)' }
+            ];
+            localStorage.setItem('shift_employees_data', JSON.stringify(employees));
+        }
+
+        let tasks = JSON.parse(localStorage.getItem('shift_tasks_data')) || [];
+        let scheduleData = JSON.parse(localStorage.getItem('shift_schedule_data')) || [];
+        
+        let systemRealDate = getRealTimeFormattedDate();
+        let currentDate = systemRealDate;
+        let currentWeekMonday = getMondayOfWeek(systemRealDate);
+        let activeTab = 'tasks';
+
+        if (scheduleData.length === 0) {
+            const day1 = addDaysToDate(currentWeekMonday, 0);
+            const day2 = addDaysToDate(currentWeekMonday, 1);
+            const day3 = addDaysToDate(currentWeekMonday, 2);
+
+            scheduleData = [
+                { id: 's1', employeeCode: 'D18119', date: day1, shift: 'Evening' },
+                { id: 's2', employeeCode: 'D18290', date: day1, shift: 'Afternoon' },
+                { id: 's3', employeeCode: 'D18290', date: day1, shift: 'Evening' },
+                { id: 's4', employeeCode: 'D18290', date: day2, shift: 'Morning' },
+                { id: 's5', employeeCode: 'D18290', date: day2, shift: 'Afternoon' },
+                { id: 's6', employeeCode: 'D18290', date: day2, shift: 'Evening' },
+                { id: 's7', employeeCode: 'D18422', date: day1, shift: 'Afternoon' },
+                { id: 's8', employeeCode: 'D18422', date: day1, shift: 'Evening' },
+                { id: 's9', employeeCode: 'D18422', date: day2, shift: 'Afternoon' },
+                { id: 's10', employeeCode: 'D18422', date: day2, shift: 'Evening' },
+                { id: 's11', employeeCode: 'D18422', date: day3, shift: 'Morning' }
+            ];
+            saveScheduleToStorage();
+        }
+
+        if (tasks.length === 0) {
+            tasks = [
+                { id: '1', title: 'Kiểm tra đơn hàng tồn ca đêm', shift: 'Morning', assignee: 'Nguyễn Lan Anh (18/7/2007)', priority: 'High', deadline: '09:30', completed: true, reason: 'Đã xong 15 đơn', date: currentDate, repeatType: 'NONE' },
+                { id: '2', title: 'Gửi báo cáo doanh thu ca sáng', shift: 'Morning', assignee: 'Triều Đỗ Diệu Linh (30/6/2006)', priority: 'Medium', deadline: '11:00', completed: false, reason: '', date: currentDate, repeatType: 'NONE' },
+                { id: '3', title: 'Đăng bài sản phẩm Fanpage', shift: 'Afternoon', assignee: 'Ngô Thị Châu Anh (9/10/2007)', priority: 'Medium', deadline: '15:00', completed: false, reason: '', date: currentDate, repeatType: 'NONE' }
+            ];
+            saveTasksToStorage();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInput = document.getElementById('filter-date');
+            dateInput.value = currentDate;
+            dateInput.addEventListener('change', (e) => {
+                currentDate = e.target.value;
+                renderApp();
+            });
+
+            document.getElementById('search-input').addEventListener('input', renderApp);
+            document.getElementById('filter-assignee').addEventListener('change', renderApp);
+            document.getElementById('filter-status').addEventListener('change', renderApp);
+            document.getElementById('filter-priority').addEventListener('change', renderApp);
+
+            startRealTimeClock();
+            renderApp();
+        });
+
+        function switchTab(tabName) {
+            activeTab = tabName;
+            const tasksView = document.getElementById('tab-view-tasks');
+            const scheduleView = document.getElementById('tab-view-schedule');
+            const btnTasks = document.getElementById('nav-btn-tasks');
+            const btnSchedule = document.getElementById('nav-btn-schedule');
+
+            if (tabName === 'tasks') {
+                tasksView.classList.remove('hidden');
+                scheduleView.classList.add('hidden');
+                btnTasks.className = 'nav-tab-active px-4 py-2.5 rounded-t-lg transition flex items-center gap-2 text-indigo-100 whitespace-nowrap';
+                btnSchedule.className = 'px-4 py-2.5 rounded-t-lg transition flex items-center gap-2 text-indigo-100 hover:text-white whitespace-nowrap hover:bg-indigo-600/50';
+                renderApp();
+            } else {
+                tasksView.classList.add('hidden');
+                scheduleView.classList.remove('hidden');
+                btnSchedule.className = 'nav-tab-active px-4 py-2.5 rounded-t-lg transition flex items-center gap-2 text-indigo-100 whitespace-nowrap';
+                btnTasks.className = 'px-4 py-2.5 rounded-t-lg transition flex items-center gap-2 text-indigo-100 hover:text-white whitespace-nowrap hover:bg-indigo-600/50';
+                renderScheduleView();
+            }
+        }
+
+        function startRealTimeClock() {
+            const daysOfWeek = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+
+            function updateClock() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const timeStr = `${hours}:${minutes}:${seconds}`;
+
+                const dayName = daysOfWeek[now.getDay()];
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+                const dateStr = `${dayName}, ${day}/${month}/${year}`;
+                const shortDateStr = `${day}/${month}/${year}`;
+
+                const liveClockEl = document.getElementById('live-clock');
+                const liveDateEl = document.getElementById('live-date');
+                if (liveClockEl) liveClockEl.innerText = timeStr;
+                if (liveDateEl) liveDateEl.innerText = dateStr;
+
+                const liveClockMobileEl = document.getElementById('live-clock-mobile');
+                const liveDateMobileEl = document.getElementById('live-date-mobile');
+                if (liveClockMobileEl) liveClockMobileEl.innerText = timeStr;
+                if (liveDateMobileEl) liveDateMobileEl.innerText = shortDateStr;
+
+                const newRealDate = getRealTimeFormattedDate();
+                if (newRealDate !== systemRealDate) {
+                    systemRealDate = newRealDate;
+                    currentDate = systemRealDate;
+                    document.getElementById('filter-date').value = currentDate;
+                    showToast('Đã bước sang ngày mới!', 'info');
+                    renderApp();
+                }
+            }
+
+            updateClock();
+            setInterval(updateClock, 1000);
+        }
+
+        function jumpToToday() {
+            currentDate = systemRealDate;
+            document.getElementById('filter-date').value = currentDate;
+            renderApp();
+            showToast('Đã về ngày hôm nay');
+        }
+
+        function saveTasksToStorage() { localStorage.setItem('shift_tasks_data', JSON.stringify(tasks)); }
+        function saveScheduleToStorage() { localStorage.setItem('shift_schedule_data', JSON.stringify(scheduleData)); }
+        function saveEmployeesToStorage() { localStorage.setItem('shift_employees_data', JSON.stringify(employees)); }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = message;
+            if (type === 'success') toastIcon.className = 'fa-solid fa-circle-check text-emerald-400';
+            else if (type === 'info') toastIcon.className = 'fa-solid fa-bell text-sky-400';
+            else toastIcon.className = 'fa-solid fa-circle-exclamation text-amber-400';
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 3500);
+        }
+
+        function isEmployeeScheduled(assigneeName, dateStr, shiftStr) {
+            if (!assigneeName) return true;
+            const emp = employees.find(e => e.name === assigneeName);
+            if (!emp) return true;
+            return scheduleData.some(s => (s.employeeCode === emp.code || s.employeeName === emp.name) && s.date === dateStr && s.shift === shiftStr);
+        }
+
+        function renderApp() {
+            populateAssigneeFilter();
+
+            const searchKey = document.getElementById('search-input').value.toLowerCase().trim();
+            const selectedAssignee = document.getElementById('filter-assignee').value;
+            const selectedStatus = document.getElementById('filter-status').value;
+            const selectedPriority = document.getElementById('filter-priority').value;
+
+            const filteredTasks = tasks.filter(task => {
+                const isDateMatch = task.date === currentDate;
+                const isSearchMatch = task.title.toLowerCase().includes(searchKey) || 
+                                      (task.assignee && task.assignee.toLowerCase().includes(searchKey));
+                const isAssigneeMatch = selectedAssignee === 'ALL' || task.assignee === selectedAssignee;
+                const isPriorityMatch = selectedPriority === 'ALL' || (task.priority || 'Medium') === selectedPriority;
+                
+                let isStatusMatch = true;
+                if (selectedStatus === 'DONE') isStatusMatch = task.completed;
+                if (selectedStatus === 'PENDING') isStatusMatch = !task.completed;
+
+                return isDateMatch && isSearchMatch && isAssigneeMatch && isStatusMatch && isPriorityMatch;
+            });
+
+            const shifts = {
+                Morning: filteredTasks.filter(t => t.shift === 'Morning'),
+                Afternoon: filteredTasks.filter(t => t.shift === 'Afternoon'),
+                Evening: filteredTasks.filter(t => t.shift === 'Evening')
+            };
+
+            renderShiftList('shift-morning-list', shifts.Morning);
+            renderShiftList('shift-afternoon-list', shifts.Afternoon);
+            renderShiftList('shift-evening-list', shifts.Evening);
+
+            document.getElementById('badge-morning').innerText = `${shifts.Morning.length} CV`;
+            document.getElementById('badge-afternoon').innerText = `${shifts.Afternoon.length} CV`;
+            document.getElementById('badge-evening').innerText = `${shifts.Evening.length} CV`;
+
+            const dayTasks = tasks.filter(t => t.date === currentDate);
+            const total = dayTasks.length;
+            const completed = dayTasks.filter(t => t.completed).length;
+            const pending = total - completed;
+            const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            document.getElementById('stat-total').innerText = total;
+            document.getElementById('stat-completed').innerText = completed;
+            document.getElementById('stat-pending').innerText = pending;
+            document.getElementById('stat-percent').innerText = `${percent}%`;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+            document.getElementById('stat-progress-text').innerText = `Đã xong ${completed}/${total} công việc`;
+        }
+
+        function renderShiftList(containerId, shiftTasks) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            if (shiftTasks.length === 0) {
+                container.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-slate-400 py-10">
+                        <i class="fa-regular fa-folder-open text-3xl mb-2"></i>
+                        <p class="text-xs">Không có công việc nào</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const now = new Date();
+            const currentHoursMinutes = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            shiftTasks.forEach(task => {
+                const priorityBadge = {
+                    'High': '<span class="bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded">Gấp</span>',
+                    'Medium': '<span class="bg-amber-100 text-amber-700 text-[10px] font-semibold px-1.5 py-0.5 rounded">Thường</span>',
+                    'Low': '<span class="bg-slate-100 text-slate-600 text-[10px] font-semibold px-1.5 py-0.5 rounded">Thấp</span>'
+                }[task.priority || 'Medium'];
+
+                let isOverdue = false;
+                if (!task.completed && task.deadline) {
+                    if (task.date < systemRealDate) isOverdue = true;
+                    else if (task.date === systemRealDate && task.deadline < currentHoursMinutes) isOverdue = true;
+                }
+
+                const hasSchedule = isEmployeeScheduled(task.assignee, task.date, task.shift);
+                const unscheduledWarning = (!hasSchedule && task.assignee) ? 
+                    `<span class="bg-rose-100 text-rose-800 border border-rose-200 text-[10px] font-medium px-1.5 py-0.5 rounded flex items-center gap-1" title="Nhân viên này chưa đăng ký ca ${task.shift === 'Morning' ? 'Sáng' : task.shift === 'Afternoon' ? 'Chiều' : 'Tối'} trong bảng lịch làm!">
+                        <i class="fa-solid fa-triangle-exclamation text-rose-600"></i> Chưa xếp ca
+                    </span>` : '';
+
+                const item = document.createElement('div');
+                item.className = `shift-card bg-white border ${task.completed ? 'border-emerald-200 bg-emerald-50/20' : (isOverdue ? 'border-red-300 bg-red-50/30' : 'border-slate-200')} rounded-lg p-3 shadow-sm relative group`;
+
+                item.innerHTML = `
+                    <div class="flex items-start gap-2.5">
+                        <input type="checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTaskComplete('${task.id}')" class="mt-1 w-4 h-4 text-emerald-600 rounded border-slate-300 cursor-pointer">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between gap-1 mb-1">
+                                <h4 class="text-xs font-semibold text-slate-800 ${task.completed ? 'line-through text-slate-400' : ''} truncate">${escapeHtml(task.title)}</h4>
+                                <div class="flex items-center gap-1 shrink-0">
+                                    ${task.groupId ? '<i class="fa-solid fa-rotate text-indigo-500 text-[10px]" title="Công việc lặp định kỳ"></i>' : ''}
+                                    ${priorityBadge}
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-y-1 gap-x-2.5 text-[11px] text-slate-500 mb-1.5">
+                                <span class="flex items-center gap-1"><i class="fa-regular fa-user text-slate-400"></i> ${escapeHtml(task.assignee || 'Chưa gán')}</span>
+                                ${task.deadline ? `<span class="${isOverdue ? 'text-red-600 font-bold' : 'text-amber-600'}"><i class="fa-regular fa-clock"></i> ${task.deadline}</span>` : ''}
+                                ${unscheduledWarning}
+                            </div>
+                            <div class="text-[11px] bg-slate-50 p-1.5 rounded border border-slate-100 flex justify-between items-center">
+                                <span class="text-slate-600 italic truncate">${task.reason ? escapeHtml(task.reason) : 'Chưa có ghi chú'}</span>
+                                <button onclick="openReasonModal('${task.id}')" class="text-indigo-600 hover:underline text-[10px] ml-1 shrink-0">Ghi chú</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-white/90 p-1 rounded shadow-sm">
+                        <button onclick="openEditTaskModal('${task.id}')" class="text-slate-500 hover:text-indigo-600 p-1 text-xs" title="Sửa"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="promptDeleteTask('${task.id}')" class="text-slate-500 hover:text-red-600 p-1 text-xs" title="Xóa"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function navigateWeek(offset) {
+            if (offset === 0) {
+                currentWeekMonday = getMondayOfWeek(systemRealDate);
+            } else {
+                currentWeekMonday = addDaysToDate(currentWeekMonday, offset * 7);
+            }
+            renderScheduleView();
+        }
+
+        function getDatesOfWeekMap() {
+            const dayOffsetMap = [1, 2, 3, 4, 5, 6, 0];
+            const datesOfWeek = {};
+            dayOffsetMap.forEach((dayIdx, i) => {
+                datesOfWeek[dayIdx] = addDaysToDate(currentWeekMonday, i);
+            });
+            return { dayOffsetMap, datesOfWeek };
+        }
+
+        function renderScheduleView() {
+            const { dayOffsetMap, datesOfWeek } = getDatesOfWeekMap();
+
+            dayOffsetMap.forEach((dayIdx) => {
+                const dateStr = datesOfWeek[dayIdx];
+                const [yyyy, mm, dd] = dateStr.split('-');
+                const formattedDateStr = `${parseInt(mm)}/${parseInt(dd)}/${yyyy}`;
+
+                const subEl = document.getElementById(`date-sub-${dayIdx}`);
+                if (subEl) subEl.innerText = formattedDateStr;
+            });
+
+            const sundayDate = addDaysToDate(currentWeekMonday, 6);
+            document.getElementById('schedule-week-range-label').innerText = `Tuần: ${currentWeekMonday.split('-').reverse().join('/')} đến ${sundayDate.split('-').reverse().join('/')}`;
+
+            const searchKey = (document.getElementById('schedule-search-input')?.value || '').toLowerCase().trim();
+            const filteredEmployees = employees.filter(emp => {
+                return emp.name.toLowerCase().includes(searchKey) || 
+                       emp.code.toLowerCase().includes(searchKey);
+            });
+
+            const tbody = document.getElementById('schedule-matrix-body');
+            tbody.innerHTML = '';
+
+            if (filteredEmployees.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="23" class="p-6 text-center text-slate-400 font-medium">Không tìm thấy nhân viên nào</td></tr>`;
+            } else {
+                const shiftKeys = ['Morning', 'Afternoon', 'Evening'];
+
+                filteredEmployees.forEach((emp, empIdx) => {
+                    const tr = document.createElement('tr');
+                    tr.className = `hover:bg-amber-50/40 transition border-b border-slate-200 ${empIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`;
+
+                    let rowHtml = `
+                        <td class="p-2 border-r border-slate-300 font-semibold text-slate-800 sticky-col-1 bg-amber-100/80 shadow-2xs truncate max-w-[180px]" title="${escapeHtml(emp.name)}">
+                            ${escapeHtml(emp.name)}
+                        </td>
+                        <td class="p-2 border-r border-slate-300 font-mono text-center text-slate-700 sticky-col-2 bg-amber-100/80 shadow-2xs font-semibold">
+                            ${escapeHtml(emp.code)}
+                        </td>
+                    `;
+
+                    dayOffsetMap.forEach((dayIdx) => {
+                        const dateStr = datesOfWeek[dayIdx];
+
+                        shiftKeys.forEach((shift) => {
+                            const isChecked = scheduleData.some(s => 
+                                (s.employeeCode === emp.code || s.employeeName === emp.name) && 
+                                s.date === dateStr && 
+                                s.shift === shift
+                            );
+
+                            rowHtml += `
+                                <td class="p-1.5 border-r border-slate-200 text-center align-middle hover:bg-indigo-50/60">
+                                    <input type="checkbox" 
+                                        ${isChecked ? 'checked' : ''} 
+                                        onchange="toggleMatrixShift('${emp.code}', '${dateStr}', '${shift}', this.checked)"
+                                        class="w-4 h-4 text-indigo-600 border-slate-300 rounded cursor-pointer focus:ring-indigo-500 accent-indigo-600">
+                                </td>
+                            `;
+                        });
+                    });
+
+                    tr.innerHTML = rowHtml;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            renderDailySummaryTable(dayOffsetMap, datesOfWeek, ['Morning', 'Afternoon', 'Evening']);
+        }
+
+        function renderDailySummaryTable(dayOffsetMap, datesOfWeek, shiftKeys) {
+            const summaryTbody = document.getElementById('summary-matrix-body');
+            if (!summaryTbody) return;
+
+            summaryTbody.innerHTML = '';
+            const daysOfWeekNames = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+            dayOffsetMap.forEach((dayIdx, index) => {
+                const dateStr = datesOfWeek[dayIdx];
+                const [yyyy, mm, dd] = dateStr.split('-');
+                const formattedDateStr = `${parseInt(dd)}/${parseInt(mm)}/${yyyy}`;
+                const dayName = daysOfWeekNames[dayIdx];
+
+                const tr = document.createElement('tr');
+                tr.className = `hover:bg-slate-50/80 transition ${index % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`;
+
+                // Cột Thứ / Ngày
+                let rowHtml = `
+                    <td class="p-3 border-r border-slate-300 bg-slate-100/60 font-medium text-center align-middle">
+                        <div class="font-bold text-slate-800 text-xs sm:text-sm">${escapeHtml(dayName)}</div>
+                        <div class="text-[11px] text-indigo-600 font-semibold mt-0.5">${formattedDateStr}</div>
+                    </td>
+                `;
+
+                // Cột 3 Ca (Sáng, Chiều, Tối)
+                shiftKeys.forEach((shift) => {
+                    const matchedShiftData = scheduleData.filter(s => s.date === dateStr && s.shift === shift);
+                    let empListHtml = '';
+                    let cellBgClass = '';
+
+                    if (matchedShiftData.length > 0) {
+                        cellBgClass = '';
+                        empListHtml = matchedShiftData.map(s => {
+                            const emp = employees.find(e => e.code === s.employeeCode || e.name === s.employeeName);
+                            const code = emp ? emp.code : (s.employeeCode || '');
+                            const name = emp ? emp.name : (s.employeeName || '');
+                            return `<div class="inline-flex items-center gap-1.5 bg-white border border-slate-200 shadow-2xs rounded-md px-2 py-1 text-slate-800 text-xs hover:border-indigo-300 transition">
+                                        <span class="font-bold font-mono text-indigo-700 bg-indigo-50 px-1 rounded text-[11px]">${escapeHtml(code)}</span>
+                                        <span class="font-medium">${escapeHtml(name)}</span>
+                                    </div>`;
+                        }).join('');
+                    } else {
+                        cellBgClass = 'bg-rose-50/70';
+                        empListHtml = `<span class="text-xs text-rose-400 italic font-medium">-- Chưa có ai --</span>`;
+                    }
+
+                    rowHtml += `
+                        <td class="p-2.5 border-r border-slate-200 align-top ${cellBgClass}">
+                            <div class="flex flex-wrap gap-1.5 items-center min-h-[28px]">
+                                ${empListHtml}
+                            </div>
+                        </td>
+                    `;
+                });
+
+                tr.innerHTML = rowHtml;
+                summaryTbody.appendChild(tr);
+            });
+        }
+
+        function toggleMatrixShift(empCode, dateStr, shift, isChecked) {
+            const emp = employees.find(e => e.code === empCode);
+            const empName = emp ? emp.name : '';
+
+            if (isChecked) {
+                const exists = scheduleData.some(s => (s.employeeCode === empCode || s.employeeName === empName) && s.date === dateStr && s.shift === shift);
+                if (!exists) {
+                    scheduleData.push({
+                        id: 'sched_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                        employeeCode: empCode,
+                        employeeName: empName,
+                        date: dateStr,
+                        shift: shift,
+                        status: 'APPROVED'
+                    });
+                }
+            } else {
+                scheduleData = scheduleData.filter(s => 
+                    !((s.employeeCode === empCode || s.employeeName === empName) && s.date === dateStr && s.shift === shift)
+                );
+            }
+
+            saveScheduleToStorage();
+            const { dayOffsetMap, datesOfWeek } = getDatesOfWeekMap();
+            renderDailySummaryTable(dayOffsetMap, datesOfWeek, ['Morning', 'Afternoon', 'Evening']);
+            if (activeTab === 'tasks') renderApp();
+        }
+
+        let confirmActionCallback = null;
+
+        function showConfirmModal(title, message, onConfirm) {
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-message').innerText = message;
+            confirmActionCallback = onConfirm;
+
+            const okBtn = document.getElementById('confirm-btn-ok');
+            okBtn.onclick = function() {
+                if (confirmActionCallback) confirmActionCallback();
+                closeConfirmModal();
+            };
+
+            document.getElementById('confirm-dialog-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-dialog-modal').classList.add('hidden');
+            confirmActionCallback = null;
+        }
+
+        function promptDeleteTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            if (task.groupId) {
+                showConfirmModal(
+                    'Xóa công việc lặp', 
+                    'Công việc này thuộc nhóm lặp định kỳ. Bạn muốn xóa tất cả các công việc trong nhóm từ ngày này trở đi?', 
+                    () => {
+                        tasks = tasks.filter(t => !(t.groupId === task.groupId && t.date >= task.date));
+                        saveTasksToStorage();
+                        renderApp();
+                        showToast('Đã xóa chuỗi công việc lặp!');
+                    }
+                );
+            } else {
+                showConfirmModal('Xóa công việc', 'Bạn có chắc chắn muốn xóa công việc này không?', () => {
+                    tasks = tasks.filter(t => t.id !== id);
+                    saveTasksToStorage();
+                    renderApp();
+                    showToast('Đã xóa công việc!');
+                });
+            }
+        }
+
+        function promptResetAllData() {
+            showConfirmModal('Khôi phục toàn bộ dữ liệu', 'Hành động này sẽ xóa hết tất cả công việc và lịch đăng ký làm. Bạn chắc chắn chứ?', () => {
+                localStorage.removeItem('shift_tasks_data');
+                localStorage.removeItem('shift_schedule_data');
+                localStorage.removeItem('shift_employees_data');
+                location.reload();
+            });
+        }
+
+        function toggleTaskComplete(id) {
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.completed = !task.completed;
+                saveTasksToStorage();
+                renderApp();
+                showToast(task.completed ? 'Đã hoàn thành công việc!' : 'Chuyển về chưa xong');
+            }
+        }
+
+        function openAddTaskModal(defaultShift = 'Morning') {
+            document.getElementById('modal-title').innerText = 'Thêm Công Việc Mới';
+            document.getElementById('task-id').value = '';
+            document.getElementById('task-group-id').value = '';
+            document.getElementById('task-form').reset();
+            document.getElementById('task-shift').value = defaultShift;
+            document.getElementById('task-repeat-type').value = 'NONE';
+            document.getElementById('repeat-section').classList.remove('hidden');
+            document.getElementById('edit-group-option').classList.add('hidden');
+            toggleRepeatOptions();
+            document.getElementById('task-modal').classList.remove('hidden');
+        }
+
+        function openEditTaskModal(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            document.getElementById('modal-title').innerText = 'Chỉnh Sửa Công Việc';
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-group-id').value = task.groupId || '';
+            document.getElementById('task-title').value = task.title;
+            document.getElementById('task-shift').value = task.shift;
+            document.getElementById('task-priority').value = task.priority || 'Medium';
+            document.getElementById('task-assignee').value = task.assignee || '';
+            document.getElementById('task-deadline').value = task.deadline || '';
+            document.getElementById('task-note').value = task.reason || '';
+
+            document.getElementById('repeat-section').classList.add('hidden');
+            
+            if (task.groupId) {
+                document.getElementById('edit-group-option').classList.remove('hidden');
+                document.getElementById('update-future-group-tasks').checked = false;
+            } else {
+                document.getElementById('edit-group-option').classList.add('hidden');
+            }
+
+            document.getElementById('task-modal').classList.remove('hidden');
+        }
+
+        function closeAddTaskModal() { document.getElementById('task-modal').classList.add('hidden'); }
+
+        function toggleRepeatOptions() {
+            const type = document.getElementById('task-repeat-type').value;
+            const daysContainer = document.getElementById('repeat-days-container');
+            const durationContainer = document.getElementById('repeat-duration-container');
+
+            if (type === 'NONE') {
+                daysContainer.classList.add('hidden');
+                durationContainer.classList.add('hidden');
+            } else if (type === 'CUSTOM_DAYS') {
+                daysContainer.classList.remove('hidden');
+                durationContainer.classList.remove('hidden');
+            } else {
+                daysContainer.classList.add('hidden');
+                durationContainer.classList.remove('hidden');
+            }
+        }
+
+        function handleTaskFormSubmit(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('task-id').value;
+            const groupId = document.getElementById('task-group-id').value;
+            const title = document.getElementById('task-title').value.trim();
+            const shift = document.getElementById('task-shift').value;
+            const priority = document.getElementById('task-priority').value;
+            const assignee = document.getElementById('task-assignee').value.trim();
+            const deadline = document.getElementById('task-deadline').value;
+            const reason = document.getElementById('task-note').value.trim();
+            const repeatType = document.getElementById('task-repeat-type').value;
+
+            if (!title) return;
+
+            if (id) {
+                const task = tasks.find(t => t.id === id);
+                if (task) {
+                    const updateFutureGroup = document.getElementById('update-future-group-tasks')?.checked;
+
+                    if (updateFutureGroup && task.groupId) {
+                        tasks.forEach(t => {
+                            if (t.groupId === task.groupId && t.date >= task.date) {
+                                t.title = title;
+                                t.shift = shift;
+                                t.priority = priority;
+                                t.assignee = assignee;
+                                t.deadline = deadline;
+                            }
+                        });
+                        task.reason = reason;
+                        showToast('Đã đồng bộ thay đổi cho tất cả việc lặp!');
+                    } else {
+                        task.title = title;
+                        task.shift = shift;
+                        task.priority = priority;
+                        task.assignee = assignee;
+                        task.deadline = deadline;
+                        task.reason = reason;
+                        showToast('Cập nhật công việc thành công!');
+                    }
+                }
+            } else {
+                const daysToRepeat = parseInt(document.getElementById('task-repeat-duration').value || '30');
+                const targetDaysCount = (repeatType === 'NONE') ? 1 : daysToRepeat;
+                const newGroupId = (repeatType !== 'NONE') ? `grp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}` : null;
+
+                let selectedCustomDays = [];
+                if (repeatType === 'CUSTOM_DAYS') {
+                    selectedCustomDays = Array.from(document.querySelectorAll('.repeat-day-cb:checked')).map(cb => parseInt(cb.value));
+                    if (selectedCustomDays.length === 0) {
+                        showToast('Vui lòng chọn ít nhất 1 thứ trong tuần!', 'info');
+                        return;
+                    }
+                }
+
+                let createdCount = 0;
+                for (let i = 0; i < targetDaysCount; i++) {
+                    const taskDate = addDaysToDate(currentDate, i);
+                    const dayOfWeek = getDayOfWeekFromStr(taskDate);
+
+                    if (repeatType === 'WEEKDAYS' && (dayOfWeek === 0 || dayOfWeek === 6)) {
+                        continue;
+                    }
+                    if (repeatType === 'CUSTOM_DAYS' && !selectedCustomDays.includes(dayOfWeek)) {
+                        continue;
+                    }
+
+                    const newTask = {
+                        id: `task_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 4)}`,
+                        groupId: newGroupId,
+                        title, shift, priority, assignee, deadline,
+                        reason: i === 0 ? reason : '',
+                        completed: false,
+                        date: taskDate,
+                        repeatType
+                    };
+                    tasks.push(newTask);
+                    createdCount++;
+                }
+                showToast(`Đã thêm ${createdCount} công việc thành công!`);
+            }
+
+            saveTasksToStorage();
+            closeAddTaskModal();
+            renderApp();
+        }
+
+        function openReasonModal(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            document.getElementById('reason-task-id').value = task.id;
+            document.getElementById('reason-task-title').innerText = `CV: ${task.title}`;
+            document.getElementById('reason-text').value = task.reason || '';
+            document.getElementById('reason-modal').classList.remove('hidden');
+        }
+
+        function closeReasonModal() { document.getElementById('reason-modal').classList.add('hidden'); }
+
+        function saveReason() {
+            const id = document.getElementById('reason-task-id').value;
+            const reasonText = document.getElementById('reason-text').value.trim();
+            const task = tasks.find(t => t.id === id);
+            if (task) {
+                task.reason = reasonText;
+                saveTasksToStorage();
+                renderApp();
+                showToast('Đã lưu lưu ý!');
+            }
+            closeReasonModal();
+        }
+
+        function openStorageModal() {
+            const jsonStr = JSON.stringify(tasks) + JSON.stringify(scheduleData) + JSON.stringify(employees);
+            const sizeKB = (new Blob([jsonStr]).size / 1024).toFixed(2);
+            document.getElementById('storage-total-count').innerText = `${tasks.length + scheduleData.length} bản ghi`;
+            document.getElementById('storage-size-kb').innerText = `${sizeKB} KB`;
+            document.getElementById('storage-modal').classList.remove('hidden');
+        }
+
+        function closeStorageModal() { document.getElementById('storage-modal').classList.add('hidden'); }
+
+        function exportBackupJSON() {
+            const backupData = {
+                version: '1.1',
+                exportDate: new Date().toISOString(),
+                employees,
+                tasks,
+                scheduleData
+            };
+            const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', `ShiftManager_Backup_${systemRealDate}.json`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Đã tải xuống file sao lưu!');
+        }
+
+        function importBackupJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.employees && imported.tasks && imported.scheduleData) {
+                        employees = imported.employees;
+                        tasks = imported.tasks;
+                        scheduleData = imported.scheduleData;
+
+                        saveEmployeesToStorage();
+                        saveTasksToStorage();
+                        saveScheduleToStorage();
+
+                        renderApp();
+                        if (activeTab === 'schedule') renderScheduleView();
+                        closeStorageModal();
+                        showToast('Đã khôi phục dữ liệu từ backup thành công!');
+                    } else {
+                        showToast('File backup không đúng định dạng chuẩn!', 'info');
+                    }
+                } catch (err) {
+                    showToast('Đã xảy ra lỗi khi đọc file JSON!', 'info');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function openEmployeeModal() {
+            renderEmployeeList();
+            document.getElementById('employee-modal').classList.remove('hidden');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employee-modal').classList.add('hidden');
+        }
+
+        function renderEmployeeList() {
+            const container = document.getElementById('employee-list-container');
+            const badge = document.getElementById('employee-count-badge');
+            container.innerHTML = '';
+            badge.innerText = `${employees.length} nhân viên`;
+
+            if (employees.length === 0) {
+                container.innerHTML = `<tr><td colspan="3" class="text-center text-slate-400 py-6 text-xs italic">Chưa có nhân viên nào trong danh sách.</td></tr>`;
+                return;
+            }
+
+            employees.forEach((emp, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+                tr.innerHTML = `
+                    <td class="p-2 border-r border-slate-200 font-mono font-bold text-indigo-700">${escapeHtml(emp.code)}</td>
+                    <td class="p-2 border-r border-slate-200 font-semibold text-slate-800">${escapeHtml(emp.name)}</td>
+                    <td class="p-2 text-center">
+                        <button onclick="promptDeleteEmployee(${index})" class="text-slate-400 hover:text-red-600 p-1 text-xs transition" title="Xóa nhân viên">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                container.appendChild(tr);
+            });
+        }
+
+        function handleAddEmployee(e) {
+            e.preventDefault();
+            const codeInput = document.getElementById('new-employee-code');
+            const nameInput = document.getElementById('new-employee-name');
+
+            const code = codeInput.value.trim().toUpperCase();
+            const name = nameInput.value.trim();
+
+            if (!code || !name) return;
+
+            if (employees.some(emp => emp.code === code)) {
+                showToast('Mã nhân viên này đã tồn tại!', 'info');
+                return;
+            }
+
+            employees.push({ code, name });
+            saveEmployeesToStorage();
+
+            codeInput.value = '';
+            nameInput.value = '';
+
+            renderEmployeeList();
+            populateEmployeeSelects();
+            renderApp();
+            if (activeTab === 'schedule') renderScheduleView();
+
+            showToast('Đã thêm nhân viên mới!');
+        }
+
+        function importEmployeeCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split('\n');
+                let count = 0;
+
+                lines.forEach((line, index) => {
+                    if (index === 0 && line.toLowerCase().includes('mã')) return;
+                    const parts = line.split(',').map(p => p.trim().replace(/^"(.*)"$/, '$1'));
+                    if (parts.length >= 2) {
+                        const code = parts[0].toUpperCase();
+                        const name = parts[1];
+
+                        if (code && name && !employees.some(emp => emp.code === code)) {
+                            employees.push({ code, name });
+                            count++;
+                        }
+                    }
+                });
+
+                if (count > 0) {
+                    saveEmployeesToStorage();
+                    renderEmployeeList();
+                    populateEmployeeSelects();
+                    renderApp();
+                    if (activeTab === 'schedule') renderScheduleView();
+                    showToast(`Đã nhập ${count} nhân viên mới!`);
+                } else {
+                    showToast('Không tìm thấy dữ liệu nhân viên mới từ CSV', 'info');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function promptDeleteEmployee(index) {
+            const emp = employees[index];
+            showConfirmModal('Xóa Nhân Viên', `Bạn có chắc chắn muốn xóa nhân viên "${emp.name}" (${emp.code}) khỏi hệ thống không?`, () => {
+                employees.splice(index, 1);
+                saveEmployeesToStorage();
+                renderEmployeeList();
+                populateEmployeeSelects();
+                renderApp();
+                if (activeTab === 'schedule') renderScheduleView();
+                showToast('Đã xóa nhân viên!');
+            });
+        }
+
+        function populateEmployeeSelects() {
+            const filterSelect = document.getElementById('filter-assignee');
+            const currentFilterVal = filterSelect.value;
+            filterSelect.innerHTML = '<option value="ALL">Tất cả nhân viên</option>';
+            
+            employees.forEach(emp => {
+                const opt = document.createElement('option');
+                opt.value = emp.name;
+                opt.innerText = `${emp.code} - ${emp.name}`;
+                filterSelect.appendChild(opt);
+            });
+            filterSelect.value = currentFilterVal;
+
+            const taskAssigneeSelect = document.getElementById('task-assignee');
+            const currentTaskVal = taskAssigneeSelect.value;
+            taskAssigneeSelect.innerHTML = '<option value="">-- Chưa gán --</option>';
+            employees.forEach(emp => {
+                const opt = document.createElement('option');
+                opt.value = emp.name;
+                opt.innerText = `${emp.code} - ${emp.name}`;
+                taskAssigneeSelect.appendChild(opt);
+            });
+            if (employees.some(e => e.name === currentTaskVal)) taskAssigneeSelect.value = currentTaskVal;
+        }
+
+        function cleanOldTasks(days) {
+            const cutoffDate = addDaysToDate(systemRealDate, -days);
+            tasks = tasks.filter(t => t.date >= cutoffDate);
+            saveTasksToStorage();
+            renderApp();
+            openStorageModal();
+            showToast(`Đã dọn dẹp dữ liệu quá ${days} ngày`);
+        }
+
+        function populateAssigneeFilter() {
+            populateEmployeeSelects();
+        }
+
+        function exportToCSV() {
+            const dayTasks = tasks.filter(t => t.date === currentDate);
+            if (dayTasks.length === 0) return showToast('Không có dữ liệu công việc!', 'info');
+
+            let csvContent = "\uFEFFNgày,Ca,Mức Độ,Công Việc,Nhân Viên,Hạn Chót,Trạng Thái,Ghi Chú\n";
+            dayTasks.forEach(t => {
+                const shiftText = t.shift === 'Morning' ? 'Ca Sáng' : t.shift === 'Afternoon' ? 'Ca Chiều' : 'Ca Tối';
+                const row = [
+                    t.date,
+                    shiftText,
+                    t.priority || 'Medium',
+                    `"${(t.title || '').replace(/"/g, '""')}"`,
+                    `"${(t.assignee || '').replace(/"/g, '""')}"`,
+                    t.deadline || '',
+                    t.completed ? 'Đã hoàn thành' : 'Chưa xong',
+                    `"${(t.reason || '').replace(/"/g, '""')}"`
+                ];
+                csvContent += row.join(',') + "\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', `CongViec_${currentDate}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Đã xuất file Excel công việc!');
+        }
+
+        function exportScheduleToCSV() {
+            if (scheduleData.length === 0) return showToast('Không có dữ liệu lịch làm!', 'info');
+
+            let csvContent = "\uFEFFMã NV,Họ và Tên,Ngày,Ca\n";
+            employees.forEach(emp => {
+                const empShifts = scheduleData.filter(s => s.employeeCode === emp.code || s.employeeName === emp.name);
+                empShifts.forEach(s => {
+                    const shiftName = s.shift === 'Morning' ? 'Ca Sáng' : s.shift === 'Afternoon' ? 'Ca Chiều' : 'Ca Tối';
+                    const row = [
+                        emp.code,
+                        `"${emp.name.replace(/"/g, '""')}"`,
+                        s.date,
+                        shiftName
+                    ];
+                    csvContent += row.join(',') + "\n";
+                });
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', `LichLamViec_Tuan.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Đã xuất file Excel lịch làm!');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
